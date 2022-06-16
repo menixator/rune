@@ -979,6 +979,9 @@ fn pat(ast: &mut ast::Pat, idx: &mut Indexer<'_>, is_used: IsUsed) -> CompileRes
         ast::Pat::PatBinding(pat) => {
             pat_binding(pat, idx)?;
         }
+        ast::Pat::PatType(p) => {
+            pat(&mut p.pat, idx, is_used)?;
+        }
         ast::Pat::PatIgnore(..) => (),
         ast::Pat::PatLit(..) => (),
         ast::Pat::PatRest(..) => (),

@@ -20,6 +20,7 @@ pub struct Local {
     /// The `let` keyword.
     pub let_token: T![let],
     /// The name of the binding.
+    #[rune(parse_with = "parse_pat")]
     pub pat: ast::Pat,
     /// The equality keyword.
     pub eq: T![=],
@@ -30,6 +31,18 @@ pub struct Local {
     pub semi: T![;],
 }
 
+fn parse_pat(p: &mut Parser<'_>) -> Result<ast::Pat, ParseError> {
+    let mut pat: ast::Pat = p.parse()?;
+    if p.peek::<T![:]>()? {
+        pat = ast::Pat::PatType(ast::PatType {
+            attributes: vec![],
+            pat: Box::new(pat),
+            colon: p.parse()?,
+            ty: p.parse()?,
+        });
+    }
+    Ok(pat)
+}
 fn parse_expr(p: &mut Parser<'_>) -> Result<ast::Expr, ParseError> {
     ast::Expr::parse_with(
         p,

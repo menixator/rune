@@ -20,6 +20,8 @@ pub enum Pat {
     PatBinding(PatBinding),
     /// The rest pattern `..`.
     PatRest(PatRest),
+    /// The type pattern `pat: Foo`
+    PatType(PatType),
 }
 
 /// Parsing a block expression.
@@ -72,18 +74,10 @@ impl Parse for Pat {
                 }));
             }
             K![str] => {
-                return Ok(match p.nth(1)? {
-                    K![:] => Self::PatBinding(PatBinding {
-                        attributes,
-                        key: ast::ObjectKey::LitStr(p.parse()?),
-                        colon: p.parse()?,
-                        pat: p.parse()?,
-                    }),
-                    _ => Self::PatLit(PatLit {
-                        attributes,
-                        expr: Box::new(ast::Expr::from_lit(ast::Lit::Str(p.parse()?))),
-                    }),
-                });
+                return Ok(Self::PatLit(PatLit {
+                    attributes,
+                    expr: Box::new(ast::Expr::from_lit(ast::Lit::Str(p.parse()?))),
+                }));
             }
             K![number] => {
                 return Ok(Self::PatLit(PatLit {
@@ -95,7 +89,7 @@ impl Parse for Pat {
                 return Ok(Self::PatRest(PatRest {
                     attributes,
                     dot_dot: p.parse()?,
-                }))
+                }));
             }
             K!['('] => {
                 return Ok({
@@ -112,14 +106,33 @@ impl Parse for Pat {
                 return Ok(Self::PatVec(PatVec {
                     attributes,
                     items: p.parse()?,
-                }))
+                }));
             }
             K![#] => {
+                let ident = p.parse()?;
+
+                let items = {
+                    let ast::Braced {
+                        open,
+                        close,
+                        braced,
+                    }: ast::Braced<FieldPat, T![,]> = p.parse()?;
+
+                    ast::Braced {
+                        open,
+                        close,
+                        braced: braced
+                            .into_iter()
+                            .map(|(field_pat, comma)| (field_pat.into(), comma))
+                            .collect(),
+                    }
+                };
+
                 return Ok(Self::PatObject(PatObject {
                     attributes,
-                    ident: p.parse()?,
-                    items: p.parse()?,
-                }))
+                    ident,
+                    items,
+                }));
             }
             K![-] => {
                 let expr: ast::Expr = p.parse()?;
@@ -141,22 +154,41 @@ impl Parse for Pat {
                 let path = p.parse::<ast::Path>()?;
 
                 return Ok(match p.nth(0)? {
-                    K!['('] => Self::PatTuple(PatTuple {
-                        attributes,
-                        path: Some(path),
-                        items: p.parse()?,
-                    }),
-                    K!['{'] => Self::PatObject(PatObject {
-                        attributes,
-                        ident: ast::ObjectIdent::Named(path),
-                        items: p.parse()?,
-                    }),
-                    K![:] => Self::PatBinding(PatBinding {
-                        attributes,
-                        key: ast::ObjectKey::Path(path),
-                        colon: p.parse()?,
-                        pat: p.parse()?,
-                    }),
+                    K!['('] => {
+                        return Ok({
+                            Self::PatTuple(PatTuple {
+                                attributes,
+                                path: Some(path),
+                                items: p.parse()?,
+                            })
+                        });
+                    }
+
+                    K!['{'] => {
+                        let items = {
+                            let ast::Braced {
+                                open,
+                                close,
+                                braced,
+                            }: ast::Braced<FieldPat, T![,]> = p.parse()?;
+
+                            ast::Braced {
+                                open,
+                                close,
+                                braced: braced
+                                    .into_iter()
+                                    .map(|(field_pat, comma)| (field_pat.into(), comma))
+                                    .collect(),
+                            }
+                        };
+
+                        return Ok(Self::PatObject(PatObject {
+                            attributes,
+                            ident: ast::ObjectIdent::Named(path),
+                            items,
+                        }));
+                    }
+
                     _ => Self::PatPath(PatPath { attributes, path }),
                 });
             }
@@ -278,4 +310,65 @@ pub struct PatIgnore {
     pub attributes: Vec<ast::Attribute>,
     /// The ignore token`_`.
     pub underscore: T![_],
+}
+
+/// The type pattern `let pat: Foo`
+#[derive(Debug, Clone, PartialEq, Eq, ToTokens, Spanned)]
+#[non_exhaustive]
+pub struct PatType {
+    /// Attributes associate with the path.
+    #[rune(iter)]
+    pub attributes: Vec<ast::Attribute>,
+
+    /// The bindings or the identifier
+    pub pat: Box<Pat>,
+
+    /// The colon separator
+    pub colon: T![:],
+
+    /// Type to match against
+    pub ty: ast::Type,
+}
+
+// TODO(menixator): refactor this
+struct FieldPat(Pat);
+
+impl From<FieldPat> for Pat {
+    fn from(FieldPat(pat): FieldPat) -> Self {
+        pat
+    }
+}
+
+impl Parse for FieldPat {
+    fn parse(p: &mut Parser) -> Result<Self, ParseError> {
+        let attributes = p.parse::<Vec<ast::Attribute>>()?;
+
+        if p.peek::<T![..]>()? {
+            return Ok(FieldPat(Pat::PatRest(PatRest {
+                attributes,
+                dot_dot: p.parse()?,
+            })));
+        }
+
+        if let K![str] = p.nth(0)? {
+            return Ok(FieldPat(Pat::PatBinding(PatBinding {
+                attributes,
+                key: ast::ObjectKey::LitStr(p.parse()?),
+                colon: p.parse()?,
+                pat: p.parse()?,
+            })));
+        }
+        // Parse a path type
+        let path = p.parse()?;
+
+        match p.nth(0)? {
+            K![:] => Ok(FieldPat(Pat::PatBinding(PatBinding {
+                attributes,
+                key: ast::ObjectKey::Path(path),
+                colon: p.parse()?,
+                pat: p.parse()?,
+            }))),
+            _ => Ok(FieldPat(Pat::PatPath(PatPath { attributes, path }))),
+        }
+    }
 }

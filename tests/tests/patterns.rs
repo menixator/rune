@@ -245,6 +245,12 @@ fn test_object_patterns() {
 }
 
 #[test]
+fn test_type_patterns(){
+    let out: i64 = rune!(pub fn main() { let a: int = 42;  a });
+    assert_eq!(out, 42);
+}
+
+#[test]
 fn test_bad_pattern() {
     // Attempting to assign to an unmatched pattern leads to a panic.
     assert_vm_error!(

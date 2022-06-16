@@ -32,10 +32,22 @@ impl ExprLet {
         parser: &mut Parser<'_>,
         attributes: Vec<ast::Attribute>,
     ) -> Result<Self, ParseError> {
+        let let_token = parser.parse()?;
+        let mut pat = parser.parse()?;
+
+        if parser.peek::<T![:]>()? {
+            pat = ast::Pat::PatType(ast::PatType {
+                attributes: vec![],
+                pat: Box::new(pat),
+                colon: parser.parse()?,
+                ty: parser.parse()?,
+            });
+        }
+
         Ok(Self {
             attributes,
-            let_token: parser.parse()?,
-            pat: parser.parse()?,
+            let_token,
+            pat,
             eq: parser.parse()?,
             expr: Box::new(ast::Expr::parse_without_eager_brace(parser)?),
         })

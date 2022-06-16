@@ -153,6 +153,8 @@ mod spanned;
 mod spanned_error;
 mod stmt;
 mod token;
+mod ty;
+
 pub(super) mod utils;
 mod vis;
 
@@ -211,7 +213,7 @@ pub use self::lit_number::LitNumber;
 pub use self::lit_str::LitStr;
 pub use self::local::Local;
 pub use self::macro_call::MacroCall;
-pub use self::pat::{Pat, PatBinding, PatLit, PatObject, PatPath, PatTuple, PatVec};
+pub use self::pat::{Pat, PatBinding, PatLit, PatObject, PatPath, PatTuple, PatType, PatVec};
 pub use self::path::{Path, PathKind, PathSegment, PathSegmentExpr};
 pub use self::span::{ByteIndex, Span};
 pub use self::spanned::{OptionSpanned, Spanned};
@@ -222,6 +224,7 @@ pub use self::token::{
     BuiltIn, CopySource, Delimiter, LitSource, Number, NumberBase, NumberSource, NumberText,
     StrSource, StrText, Token,
 };
+pub use self::ty::{Type, TypePath};
 pub use self::vis::Visibility;
 
 macro_rules! decl_tokens {

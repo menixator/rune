@@ -289,6 +289,7 @@ fn pat(
                 CompileErrorKind::UnsupportedBinding,
             ))
         }
+        ast::Pat::PatType(p) => pat(&p.pat, c, false_label, load),
         ast::Pat::PatIgnore(..) => {
             // ignore binding, but might still have side effects, so must
             // call the load generator.

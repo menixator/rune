@@ -24,6 +24,9 @@ pub(crate) fn pat(ast: &mut ast::Pat, idx: &mut Indexer<'_>) -> CompileResult<()
         ast::Pat::PatBinding(p) => {
             pat_binding(p, idx)?;
         }
+        ast::Pat::PatType(p) => {
+            pat(&mut p.pat, idx)?;
+        }
         ast::Pat::PatIgnore(..) => (),
         ast::Pat::PatLit(..) => (),
         ast::Pat::PatRest(..) => (),
